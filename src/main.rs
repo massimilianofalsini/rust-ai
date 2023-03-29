@@ -35,8 +35,12 @@ fn re_l_u(z: Array2<f32>) -> Array2<f32> {
     x
 }
 
-fn softmax(z: Array2<f32>) {
-    // TO DO
+fn softmax(z: Array2<f32>) -> Array2<f32> {
+    let x = z.clone();
+    let x_to_the_e = x.mapv(f32::exp);
+    let sum_of_x_to_the_e: f32 = x_to_the_e.clone().into_iter().sum();
+    let softmax = x_to_the_e.map(|k| k / sum_of_x_to_the_e);
+    softmax
 }
 
 fn forward_propagation(w1: Array2<f32>, b1: Array2<f32>, w2: Array2<f32>, b2: Array2<f32>) {
@@ -63,7 +67,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let b1 = params[1].clone();
     let w2 = params[2].clone();
     let b2 = params[3].clone();
-    println!("{}", params[2].clone());
 
     // Forward propagation
     forward_propagation(w1, b1, w2, b2);
