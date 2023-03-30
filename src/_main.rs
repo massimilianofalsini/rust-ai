@@ -1,25 +1,27 @@
 extern crate csv;
 extern crate ndarray;
+extern crate ndarray_csv;
 
 use csv::ReaderBuilder;
-use ndarray::s;
 use ndarray::Array;
 use ndarray::Array1;
 use ndarray::Array2;
+use ndarray::Axis;
 use ndarray::Zip;
 use ndarray_csv::Array2Reader;
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
+use std::array;
 use std::error::Error;
 use std::fs::File;
 
-fn get_csv_shape() -> (usize, usize) {
+fn get_csv_shape() -> Vec<usize> {
     // TO DO
-    (42000, 785)
+    vec![42000, 785]
 }
 
-fn init_params(columns: usize) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
-    let w1 = Array::random((10, columns), Uniform::new(-0.5, 0.5)); // columns-1
+fn init_params(csv_shape: Vec<usize>) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
+    let w1 = Array::random((10, csv_shape[1] - 1), Uniform::new(-0.5, 0.5));
     let b1 = Array::random((10, 1), Uniform::new(-0.5, 0.5));
     let w2 = Array::random((10, 10), Uniform::new(-0.5, 0.5));
     let b2 = Array::random((10, 1), Uniform::new(-0.5, 0.5));
@@ -44,21 +46,21 @@ fn softmax(z: Array2<f32>) -> Array2<f32> {
     softmax
 }
 
-fn forward_prop(
+fn forward_propagation(
     w1: Array2<f32>,
     b1: Array2<f32>,
     w2: Array2<f32>,
     b2: Array2<f32>,
     x: Array2<f32>,
 ) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
-    let z1 = w1.dot(&x) + b1; // error: inputs 10 × 785 and 784 × 42000 are not compatible for matrix multiplication
+    let z1 = w1.dot(&x) + b1;
     let a1 = re_l_u(z1.clone());
     let z2 = w2.dot(&a1) + b2;
     let a2 = softmax(z2.clone());
     (z1, a1, z2, a2)
 }
 
-fn one_hot(y: Array1<f32>) -> Array1<f32> {
+fn one_hot(y: Array2<f32>) -> Array2<f32> {
     // TO DO
     y
 }
@@ -78,16 +80,15 @@ fn backward_prop(
     a1: Array2<f32>,
     z2: Array2<f32>,
     a2: Array2<f32>,
-    w1: Array2<f32>,
     w2: Array2<f32>,
     x: Array2<f32>,
-    y: Array1<f32>,
-) -> (Array2<f32>, f32, Array2<f32>, f32) {
+    y: Array2<f32>,
+) -> (Array2<f32>, f32, Array2<f32>, Array1<f32>) {
     let m = y.len() as f32;
     let one_hot_y = one_hot(y);
     let dz2 = a2 - one_hot_y;
     let dw2 = 1.0 / m * dz2.dot(&a1.t());
-    let db2 = 1.0 / m + dz2.sum();
+    let db2 = 1.0 / m + dz2.sum_axis(Axis(2));
     let dz1 = w2.t().dot(&dz2) * re_l_u_derivative(z1);
     let dw1 = 1.0 / m * dz1.dot(&x.t());
     let db1 = 1.0 / m + dz1.sum();
@@ -102,7 +103,7 @@ fn update_param(
     dw1: Array2<f32>,
     db1: f32,
     dw2: Array2<f32>,
-    db2: f32,
+    db2: Array1<f32>,
     alpha: f32,
 ) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
     let new_w1 = w1 - alpha * dw1;
@@ -112,78 +113,35 @@ fn update_param(
     (new_b1, new_b2, new_w1, new_w2)
 }
 
-fn get_predictions(a2: Array2<f32>) -> usize {
-    let (mut index, mut max) = (0, 0.0);
-    for (i, elem) in a2.iter().enumerate() {
-        if (index, &max) < (0, elem) {
-            max = *elem;
-            index = i;
-        }
-    }
-    index
-}
-
-fn get_accuracy(predictions: usize, y: Array1<f32>) -> usize {
-    let mut sum = 0;
-    for elem in y.iter() {
-        if predictions as f32 == *elem {
-            sum += 1;
-        }
-    }
-    let accuracy = sum / y.len();
-    accuracy
-}
-
-fn gradient_descent(x: Array2<f32>, y: Array1<f32>, alpha: f32, iterations: usize, columns: usize) {
-    let (w1, b1, w2, b2) = init_params(columns);
-    for i in 0..iterations {
+fn gradient_descent(
+    x: Array2<f32>,
+    y: Array2<f32>,
+    iterators: u64,
+    alpha: f32,
+    csv_shape: Vec<usize>,
+) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
+    let (mut b1, mut b2, mut w1, mut w2) = init_params(csv_shape);
+    for i in 0..iterators {
         let (z1, a1, z2, a2) =
-            forward_prop(w1.clone(), b1.clone(), w2.clone(), b2.clone(), x.clone());
-        let (dw1, db1, dw2, db2) = backward_prop(
-            z1,
-            a1,
-            z2,
-            a2.clone(),
-            w1.clone(),
-            w2.clone(),
-            x.clone(),
-            y.clone(),
-        );
-        let (b1, b2, w1, w2) = update_param(
-            w1.clone(),
-            b1.clone(),
-            w2.clone(),
-            b2.clone(),
-            dw1,
-            db1,
-            dw2,
-            db2,
-            alpha,
-        );
+            forward_propagation(w1.clone(), b1.clone(), w2.clone(), b2.clone(), x.clone());
+        let (dw1, db1, dw2, db2) = backward_prop(z1, a1, z2, a2, w2, x.clone(), y.clone());
+        let (b1, b2, w1, w2) = update_param(w1, b1, w2, b2, dw1, db1, dw2, db2, alpha);
         if i % 10 == 0 {
-            print!("Iteration {}", i);
-            let predictions = get_predictions(a2.clone());
-            print!("{}", get_accuracy(predictions, y.clone()));
+            println!("{}", i);
         }
     }
+    (b1, b2, w1, w2)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let (rows, columns) = get_csv_shape();
+    let csv_shape = get_csv_shape();
 
-    // read a matrix back from the file
+    // Read an array back from the file
     let file = File::open("mnist_train.csv")?;
     let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
-    let array_read: Array2<u8> = reader.deserialize_array2((rows, columns))?;
+    let array_read: Array2<u8> = reader.deserialize_array2((csv_shape[0], csv_shape[1]))?;
 
-    // after transposition rows are columns and vice versa
-    let data_train = array_read.t();
-    // get the first row
-    let y_train = data_train.slice(s![0, ..]).mapv(|elem| elem as f32);
-    //get the other of the rows and normalize them
-    let x_train = data_train
-        .slice(s![1..columns, ..])
-        .mapv(|elem| elem as f32 / 255.0);
-    gradient_descent(x_train, y_train, 0.1, 500, columns);
+    // Init params
+
     Ok(())
 }
