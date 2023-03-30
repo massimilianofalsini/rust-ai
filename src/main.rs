@@ -89,6 +89,24 @@ fn backward_prop(
     (dw1, db1, dw2, db2)
 }
 
+fn update_param(
+    w1: Array2<f32>,
+    b1: Array2<f32>,
+    w2: Array2<f32>,
+    b2: Array2<f32>,
+    dw1: Array2<f32>,
+    db1: Array2<f32>,
+    dw2: Array2<f32>,
+    db2: Array2<f32>,
+    alpha: f32,
+) -> Vec<Array2<f32>> {
+    let new_w1 = w1 - alpha * dw1;
+    let new_b1 = b1 - alpha * db1;
+    let new_w2 = w2 - alpha * dw2;
+    let new_b2 = b2 - alpha * db2;
+    vec![new_b1, new_b2, new_w1, new_w2]
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let csv_shape = get_csv_shape();
 
