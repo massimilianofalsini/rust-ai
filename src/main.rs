@@ -58,9 +58,19 @@ fn forward_prop(
     (z1, a1, z2, a2)
 }
 
-fn one_hot(y: Array1<f32>) -> Array1<f32> {
-    // TO DO
-    y
+fn one_hot(y: Array1<f32>) -> Array2<f32> {
+    let mut max = 0.0;
+    for elem in y.iter() {
+        if elem > &max {
+            max = *elem;
+        }
+    }
+    let mut one_hot_y = Array2::<f32>::zeros((y.len(), max as usize + 1));
+    for (i, elem) in y.iter().enumerate() {
+        // inverting indices to not transpose after
+        one_hot_y[[*elem as usize, i]] = 1.0;
+    }
+    one_hot_y
 }
 
 fn re_l_u_derivative(z: Array2<f32>) -> Array2<f32> {
@@ -76,9 +86,9 @@ fn re_l_u_derivative(z: Array2<f32>) -> Array2<f32> {
 fn backward_prop(
     z1: Array2<f32>,
     a1: Array2<f32>,
-    z2: Array2<f32>,
+    _z2: Array2<f32>,
     a2: Array2<f32>,
-    w1: Array2<f32>,
+    _w1: Array2<f32>,
     w2: Array2<f32>,
     x: Array2<f32>,
     y: Array1<f32>,
@@ -150,7 +160,7 @@ fn gradient_descent(x: Array2<f32>, y: Array1<f32>, alpha: f32, iterations: usiz
             x.clone(),
             y.clone(),
         );
-        let (b1, b2, w1, w2) = update_param(
+        let (_b1, _b2, _w1, _w2) = update_param(
             w1.clone(),
             b1.clone(),
             w2.clone(),
