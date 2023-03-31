@@ -67,10 +67,9 @@ fn one_hot(y: Array1<f32>) -> Array2<f32> {
     }
     let mut one_hot_y = Array2::<f32>::zeros((y.len(), max as usize + 1));
     for (i, elem) in y.iter().enumerate() {
-        // inverting indices to not transpose after
-        one_hot_y[[*elem as usize, i]] = 1.0;
+        one_hot_y[[i, *elem as usize]] = 1.0;
     }
-    one_hot_y
+    return one_hot_y.reversed_axes(); // .t() is the same as .view().reversed_axes()
 }
 
 fn re_l_u_derivative(z: Array2<f32>) -> Array2<f32> {
@@ -97,7 +96,7 @@ fn backward_prop(
     let one_hot_y = one_hot(y);
     let dz2 = a2 - one_hot_y;
     let dw2 = 1.0 / m * dz2.dot(&a1.t());
-    let db2 = 1.0 / m + dz2.sum();
+    let db2 = 1.0 / m * dz2.sum();
     let dz1 = w2.t().dot(&dz2) * re_l_u_derivative(z1);
     let dw1 = 1.0 / m * dz1.dot(&x.t());
     let db1 = 1.0 / m + dz1.sum();
