@@ -19,7 +19,7 @@ fn get_csv_shape() -> (usize, usize) {
 }
 
 fn init_params(columns: usize) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
-    let w1 = Array::random((10, columns), Uniform::new(-0.5, 0.5)); // columns-1
+    let w1 = Array::random((10, columns - 1), Uniform::new(-0.5, 0.5));
     let b1 = Array::random((10, 1), Uniform::new(-0.5, 0.5));
     let w2 = Array::random((10, 10), Uniform::new(-0.5, 0.5));
     let b2 = Array::random((10, 1), Uniform::new(-0.5, 0.5));
@@ -51,7 +51,7 @@ fn forward_prop(
     b2: Array2<f32>,
     x: Array2<f32>,
 ) -> (Array2<f32>, Array2<f32>, Array2<f32>, Array2<f32>) {
-    let z1 = w1.dot(&x) + b1; // error: inputs 10 × 785 and 784 × 42000 are not compatible for matrix multiplication
+    let z1 = w1.dot(&x) + b1;
     let a1 = re_l_u(z1.clone());
     let z2 = w2.dot(&a1) + b2;
     let a2 = softmax(z2.clone());
@@ -137,6 +137,7 @@ fn get_accuracy(predictions: usize, y: Array1<f32>) -> usize {
 fn gradient_descent(x: Array2<f32>, y: Array1<f32>, alpha: f32, iterations: usize, columns: usize) {
     let (w1, b1, w2, b2) = init_params(columns);
     for i in 0..iterations {
+        // error: infinite loop
         let (z1, a1, z2, a2) =
             forward_prop(w1.clone(), b1.clone(), w2.clone(), b2.clone(), x.clone());
         let (dw1, db1, dw2, db2) = backward_prop(
@@ -161,9 +162,9 @@ fn gradient_descent(x: Array2<f32>, y: Array1<f32>, alpha: f32, iterations: usiz
             alpha,
         );
         if i % 10 == 0 {
-            print!("Iteration {}", i);
+            println!("Iteration {}", i);
             let predictions = get_predictions(a2.clone());
-            print!("{}", get_accuracy(predictions, y.clone()));
+            println!("{}", get_accuracy(predictions, y.clone()));
         }
     }
 }
@@ -175,7 +176,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file = File::open("mnist_train.csv")?;
     let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
     let array_read: Array2<u8> = reader.deserialize_array2((rows, columns))?;
-
+    println!("csv readed successfully");
     // after transposition rows are columns and vice versa
     let data_train = array_read.t();
     // get the first row
